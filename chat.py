@@ -10,8 +10,8 @@ KEY = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=KEY)
 
 response = client.responses.create(
-  model="gpt-5",
-  input="What is the capital of England? One-word answer."
+    model="gpt-5",
+    input="What comes next in this sequence: 171, 34, 89, 2. Just give a number or say 'I don't know' if you don't know."
 )
 
 print(response.output_text)
