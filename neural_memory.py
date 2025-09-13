@@ -26,52 +26,51 @@ class NeuralMemory(nn.Module):
         """
         return self.memory(key)
 
-
-def train_single_sequence(memory_module: NeuralMemory, data_handler: SequenceData, target_sequence, 
-                         learning_rate=0.01, num_epochs=1000, print_every=100):
-    """
-    Train the memory module to memorise a single sequence.
-    
-    Args:
-        memory_module: NeuralMemory instance
-        data_handler: SequenceData instance
-        target_sequence: 4-integer tensor to memorise
-        learning_rate: learning rate for optimization
-        num_epochs: number of training epochs
-        print_every: print loss every N epochs
-    
-    Returns:
-        List of losses during training
-    """
-    optimizer = optim.SGD(memory_module.parameters(), lr=learning_rate)
-    criterion = nn.MSELoss()
-    
-    # Extract key and target value from the sequence
-    key, target_value = data_handler.extract_key_value(target_sequence)
-    
-    losses = []
-    
-    for epoch in range(num_epochs):
-        optimizer.zero_grad()
+    def train_single_sequence(self, data_handler: SequenceData, target_sequence, 
+                            learning_rate=0.01, num_epochs=1000, print_every=100):
+        """
+        Train the memory module to memorise a single sequence.
         
-        # Forward pass
-        predicted_value = memory_module(key)
+        Args:
+            memory_module: NeuralMemory instance
+            data_handler: SequenceData instance
+            target_sequence: 4-integer tensor to memorise
+            learning_rate: learning rate for optimization
+            num_epochs: number of training epochs
+            print_every: print loss every N epochs
         
-        # Compute loss (associative memory loss from paper)
-        loss = criterion(predicted_value, target_value)
+        Returns:
+            List of losses during training
+        """
+        optimizer = optim.SGD(self.parameters(), lr=learning_rate)
+        criterion = nn.MSELoss()
         
-        # Backward pass
-        loss.backward()
-        optimizer.step()
+        # Extract key and target value from the sequence
+        key, target_value = data_handler.extract_key_value(target_sequence)
         
-        losses.append(loss.item())
+        losses = []
         
-        if epoch % print_every == 0:
-            print(f"Epoch {epoch:4d}: Loss = {loss.item():.6f}, "
-                  f"Predicted = {predicted_value.item():.3f}, "
-                  f"Target = {target_value.item():.3f}")
-    
-    return losses
+        for epoch in range(num_epochs):
+            optimizer.zero_grad()
+            
+            # Forward pass
+            predicted_value = self.forward(key)
+            
+            # Compute loss (associative memory loss from paper)
+            loss = criterion(predicted_value, target_value)
+            
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+            
+            losses.append(loss.item())
+            
+            if epoch % print_every == 0:
+                print(f"Epoch {epoch:4d}: Loss = {loss.item():.6f}, "
+                    f"Predicted = {predicted_value.item():.3f}, "
+                    f"Target = {target_value.item():.3f}")
+        
+        return losses
 
 def test_memory_recall(memory_module: NeuralMemory, data_handler: SequenceData, test_sequence):
     """
@@ -108,7 +107,7 @@ if __name__ == "__main__":
     data = SequenceData()
     
     # Generate a target sequence to memorise
-    target_seq = torch.tensor([171, 34, 89, 2], dtype=torch.float32)
+    target_seq = data.generate_sequence()
     print(f"Target sequence to memorise: {target_seq.numpy()}")
     print(f"Key (first 3): {target_seq[:3].numpy()}")
     print(f"Value (last 1): {target_seq[3].item()}")
@@ -116,8 +115,7 @@ if __name__ == "__main__":
     
     # Train the memory to memorise this sequence
     print("Training memory module...")
-    losses = train_single_sequence(memory, data, target_seq, 
-                                 learning_rate=0.01, num_epochs=1000, print_every=200)
+    losses = memory.train_single_sequence(data, target_seq, learning_rate=0.01, num_epochs=1000, print_every=200)
     
     print("-" * 50)
     print("Testing recall...")

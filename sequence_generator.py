@@ -13,7 +13,7 @@ class SequenceData:
         
         self.W_V = torch.tensor([[0, 0, 0, 1]], dtype=torch.float32)  # Extract last 1
     
-    def generate_sequence(self, low=0, high=10):
+    def generate_sequence(self, low=0, high=1000):
         """Generate a single random 4-integer sequence."""
         return torch.randint(low, high, (4,), dtype=torch.float32)
     
