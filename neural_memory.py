@@ -93,32 +93,29 @@ def train_multiple_sequences(memory_module: NeuralMemory, data_handler: Sequence
     optimizer = optim.SGD(memory_module.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
 
-    enc_sequences = data_handler.encode_batch(sequences)
-    # normalise training data
-    scaler = StandardScaler()
-    enc_sequences = torch.tensor(scaler.fit_transform(enc_sequences), dtype=torch.float32)
+    losses = []
 
     for epoch in range(num_epochs):
         epoch_loss = 0
-        for i, seq in enumerate(enc_sequences):
+        for i, seq in enumerate(sequences):
             key, value = data_handler.extract_key_value(seq)
             # Train on this key-value pair
             optimizer.zero_grad()
             pred = memory_module.forward(key)
             loss = criterion(pred, value)
+            if torch.isnan(loss):
+                raise ValueError("Loss is NaN. Training diverged at epoch ",  epoch)
             epoch_loss += loss.item()
             loss.backward()
             optimizer.step()
             if epoch % 1000 == 0:
                 print(f"Training on sequence {i+1}, Epoch {epoch}: Loss = {loss.item():.6f}")
+        losses.append(epoch_loss)
         if epoch_loss < 1e-4:
             print(f"Early stopping at epoch {epoch} with total loss {epoch_loss:.6f}")
-            print(f"Pred for sequence 1: {data_handler.decode([int(i) for i in memory_module.forward(*data_handler.extract_key_value(sequences[0])).detach().numpy().round()])}")
-            print(f"Pred for sequence 2: {data_handler.decode([int(i) for i in memory_module.forward(*data_handler.extract_key_value(sequences[1])).detach().numpy().round()])}")
-            print(sequences[0], sequences[1])
             break
 
-
+    return losses
 
 def test_memory_recall(memory_module: NeuralMemory, data_handler: SequenceData, test_sequence):
     """
