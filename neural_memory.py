@@ -2,13 +2,16 @@ import torch
 from sequence_generator import SequenceData
 import torch.optim as optim
 import torch.nn as nn
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+
 
 class NeuralMemory(nn.Module):
     """
     Single layer MLP for associative memory.
     Takes 3D key input, outputs 1D value prediction.
     """
-    def __init__(self, key_dim=3, hidden_dim=64, value_dim=1):
+    def __init__(self, key_dim=11, hidden_dim=64, value_dim=3):
         super().__init__()
         self.memory = nn.Sequential(
             nn.Linear(key_dim, hidden_dim),
@@ -26,51 +29,73 @@ class NeuralMemory(nn.Module):
         """
         return self.memory(key)
 
-    def train_single_sequence(self, data_handler: SequenceData, target_sequence, 
-                            learning_rate=0.01, num_epochs=1000, print_every=100):
-        """
-        Train the memory module to memorise a single sequence.
+
+def train_single_sequence(memory_module: NeuralMemory, data_handler: SequenceData, target_sequence, 
+                        learning_rate=0.01, num_epochs=1000, print_every=100, verbose=True):
+    """
+    Train the memory module to memorise a single sequence.
+    
+    Args:
+        memory_module: NeuralMemory instance
+        data_handler: SequenceData instance
+        target_sequence: 4-integer tensor to memorise
+        learning_rate: learning rate for optimization
+        num_epochs: number of training epochs
+        print_every: print loss every N epochs
+    
+    Returns:
+        List of losses during training
+    """
+    optimizer = optim.SGD(memory_module.parameters(), lr=learning_rate)
+    criterion = nn.MSELoss()
+
+    # Encode sequence into tokens
+    target_sequence_enc = torch.tensor(data_handler.encode(target_sequence), dtype=torch.float32)
+
+    # Extract key and target value from the sequence
+    key, target_value = data_handler.extract_key_value(target_sequence_enc)
+    
+    losses = []
+    
+    for epoch in range(num_epochs):
+        optimizer.zero_grad()
         
-        Args:
-            memory_module: NeuralMemory instance
-            data_handler: SequenceData instance
-            target_sequence: 4-integer tensor to memorise
-            learning_rate: learning rate for optimization
-            num_epochs: number of training epochs
-            print_every: print loss every N epochs
+        # Forward pass
+        predicted_value = memory_module.forward(key)
         
-        Returns:
-            List of losses during training
-        """
-        optimizer = optim.SGD(self.parameters(), lr=learning_rate)
-        criterion = nn.MSELoss()
+        # Compute loss (associative memory loss from paper)
+        loss = criterion(predicted_value, target_value)
         
-        # Extract key and target value from the sequence
-        key, target_value = data_handler.extract_key_value(target_sequence)
+        # Backward pass
+        loss.backward()
+        optimizer.step()
+
+        losses.append(loss.item())
         
-        losses = []
-        
-        for epoch in range(num_epochs):
+        if epoch % print_every == 0 and verbose:
+            print(f"Epoch {epoch:4d}: Loss = {loss.item():.6f}, "
+                f"Predicted = {data_handler.decode([int(i) for i in predicted_value.detach().numpy().round()])}, "
+                f"Target = {target_sequence.numpy()[-1]}")
+    
+    return losses
+
+def train_multiple_sequences(memory_module: NeuralMemory, data_handler: SequenceData, sequences, learning_rate=0.01, num_epochs=1000):
+    optimizer = optim.SGD(memory_module.parameters(), lr=learning_rate)
+    criterion = nn.MSELoss()
+
+    for epoch in range(num_epochs):
+        for seq in sequences:
+            key, value = data_handler.extract_key_value(seq)
+            # Train on this key-value pair
             optimizer.zero_grad()
-            
-            # Forward pass
-            predicted_value = self.forward(key)
-            
-            # Compute loss (associative memory loss from paper)
-            loss = criterion(predicted_value, target_value)
-            
-            # Backward pass
+            pred = memory_module.forward(key)
+            loss = criterion(pred, value)
             loss.backward()
             optimizer.step()
-            
-            losses.append(loss.item())
-            
-            if epoch % print_every == 0:
-                print(f"Epoch {epoch:4d}: Loss = {loss.item():.6f}, "
-                    f"Predicted = {predicted_value.item():.3f}, "
-                    f"Target = {target_value.item():.3f}")
-        
-        return losses
+            if epoch % 1000 == 0:
+                print(f"Training on sequence {seq.numpy()}, Epoch {epoch}: Loss = {loss.item():.6f}")
+
+
 
 def test_memory_recall(memory_module: NeuralMemory, data_handler: SequenceData, test_sequence):
     """
