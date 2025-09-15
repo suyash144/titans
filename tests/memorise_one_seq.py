@@ -12,11 +12,11 @@ import tiktoken
 
 if __name__ == "__main__":
     
-    load_dotenv()  # Load .env file
+    load_dotenv()
     KEY = os.getenv('OPENAI_API_KEY')
 
     client = OpenAI(api_key=KEY)
-    memory = NeuralMemory(key_dim=11, hidden_dim=64, value_dim=3)
+    memory = NeuralMemory()
     data = SequenceData()
     test_sequence = data.generate_sequence()
     print(f"Test sequence: {test_sequence.numpy()}")
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     # print(response_no_memory)
 
     print("Training memory module...")
-    losses = train_single_sequence(memory, data, test_sequence, learning_rate=0.05, 
+    losses = train_single_sequence(memory, data, test_sequence, learning_rate=0.0001, 
                                           num_epochs=5000, print_every=500)
 
     response_with_memory = query(True, test_sequence[:3], client, memory_module=memory)

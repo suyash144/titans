@@ -2,32 +2,41 @@ import torch
 from sequence_generator import SequenceData
 import torch.optim as optim
 import torch.nn as nn
-import numpy as np
+import torch.nn.utils as utils
 from sklearn.preprocessing import StandardScaler
 
 
 class NeuralMemory(nn.Module):
     """
-    Single layer MLP for associative memory.
-    Takes 3D key input, outputs 1D value prediction.
+    Associative memory for random number sequence mappings.
     """
-    def __init__(self, key_dim=11, hidden_dim=64, value_dim=3):
+    def __init__(self, max_number=1000, sequence_length=3, embedding_dim=8, hidden_dim=128, value_dim=1):
         super().__init__()
+        # Treat each number 0-1000 as a distinct categorical entity
+        self.embedding = nn.Embedding(max_number + 1, embedding_dim)
+        self.sequence_length = sequence_length
+        
+        # Process the embedded sequence
+        input_dim = sequence_length * embedding_dim
         self.memory = nn.Sequential(
-            nn.Linear(key_dim, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, value_dim)
         )
     
-    def forward(self, key):
+    def forward(self, numbers):
         """
-        Forward pass through memory.
         Args:
-            key: tensor of shape (batch_size, 3) or (3,) for single key
+            numbers: tensor of shape (batch_size, 3) containing integers 0-1000
         Returns:
-            predicted_value: tensor of shape (batch_size, 1) or (1,)
+            predicted_value: tensor of shape (batch_size, 3)
         """
-        return self.memory(key)
+        # Each number gets its own learnable representation
+        embedded = self.embedding(numbers)
+        flattened = torch.flatten(embedded)
+        return self.memory(flattened)
 
 
 def train_single_sequence(memory_module: NeuralMemory, data_handler: SequenceData, target_sequence, 
@@ -49,11 +58,8 @@ def train_single_sequence(memory_module: NeuralMemory, data_handler: SequenceDat
     optimizer = optim.SGD(memory_module.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
 
-    # Encode sequence into tokens
-    target_sequence_enc = torch.tensor(data_handler.encode(target_sequence), dtype=torch.float32)
-
     # Extract key and target value from the sequence
-    key, target_value = data_handler.extract_key_value(target_sequence_enc)
+    key, target_value = data_handler.extract_key_value(target_sequence)
     
     losses = []
     
@@ -62,38 +68,55 @@ def train_single_sequence(memory_module: NeuralMemory, data_handler: SequenceDat
         
         # Forward pass
         predicted_value = memory_module.forward(key)
-        
-        # Compute loss (associative memory loss from paper)
         loss = criterion(predicted_value, target_value)
+        # raise is loss is NaN
+        if torch.isnan(loss):
+            raise ValueError("Loss is NaN. Training diverged at epoch ",  epoch)
         
         # Backward pass
         loss.backward()
+        # if epoch < 50:
+        #     utils.clip_grad_norm_(memory_module.parameters(), 5.0)
         optimizer.step()
 
         losses.append(loss.item())
         
         if epoch % print_every == 0 and verbose:
             print(f"Epoch {epoch:4d}: Loss = {loss.item():.6f}, "
-                f"Predicted = {data_handler.decode([int(i) for i in predicted_value.detach().numpy().round()])}, "
+                f"Predicted = {predicted_value.item()}, "
                 f"Target = {target_sequence.numpy()[-1]}")
     
     return losses
 
-def train_multiple_sequences(memory_module: NeuralMemory, data_handler: SequenceData, sequences, learning_rate=0.01, num_epochs=1000):
+def train_multiple_sequences(memory_module: NeuralMemory, data_handler: SequenceData, sequences, 
+                             learning_rate=0.01, num_epochs=1000):
     optimizer = optim.SGD(memory_module.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
 
+    enc_sequences = data_handler.encode_batch(sequences)
+    # normalise training data
+    scaler = StandardScaler()
+    enc_sequences = torch.tensor(scaler.fit_transform(enc_sequences), dtype=torch.float32)
+
     for epoch in range(num_epochs):
-        for seq in sequences:
+        epoch_loss = 0
+        for i, seq in enumerate(enc_sequences):
             key, value = data_handler.extract_key_value(seq)
             # Train on this key-value pair
             optimizer.zero_grad()
             pred = memory_module.forward(key)
             loss = criterion(pred, value)
+            epoch_loss += loss.item()
             loss.backward()
             optimizer.step()
             if epoch % 1000 == 0:
-                print(f"Training on sequence {seq.numpy()}, Epoch {epoch}: Loss = {loss.item():.6f}")
+                print(f"Training on sequence {i+1}, Epoch {epoch}: Loss = {loss.item():.6f}")
+        if epoch_loss < 1e-4:
+            print(f"Early stopping at epoch {epoch} with total loss {epoch_loss:.6f}")
+            print(f"Pred for sequence 1: {data_handler.decode([int(i) for i in memory_module.forward(*data_handler.extract_key_value(sequences[0])).detach().numpy().round()])}")
+            print(f"Pred for sequence 2: {data_handler.decode([int(i) for i in memory_module.forward(*data_handler.extract_key_value(sequences[1])).detach().numpy().round()])}")
+            print(sequences[0], sequences[1])
+            break
 
 
 
@@ -127,32 +150,7 @@ def test_memory_recall(memory_module: NeuralMemory, data_handler: SequenceData, 
 
 
 if __name__ == "__main__":
-
-    memory = NeuralMemory(key_dim=3, hidden_dim=64, value_dim=1)
-    data = SequenceData()
+    pass
     
-    # Generate a target sequence to memorise
-    target_seq = data.generate_sequence()
-    print(f"Target sequence to memorise: {target_seq.numpy()}")
-    print(f"Key (first 3): {target_seq[:3].numpy()}")
-    print(f"Value (last 1): {target_seq[3].item()}")
-    print("-" * 50)
-    
-    # Train the memory to memorise this sequence
-    print("Training memory module...")
-    losses = memory.train_single_sequence(data, target_seq, learning_rate=0.01, num_epochs=1000, print_every=200)
-    
-    print("-" * 50)
-    print("Testing recall...")
-    
-    # Test recall on the same sequence
-    results = test_memory_recall(memory, data, target_seq)
-    print(f"Test Results:")
-    print(f"  Input sequence: {results['input_sequence']}")
-    print(f"  Given key: {results['key']}")
-    print(f"  True value: {results['true_value']}")
-    print(f"  Predicted value: {results['predicted_value']:.3f}")
-    print(f"  Error: {results['error']:.6f}")
-    print(f"  Exact match: {results['exact_match']}")
 
 
