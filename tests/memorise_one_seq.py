@@ -7,7 +7,6 @@ sys.path.insert(0, os.getcwd())
 from neural_memory import NeuralMemory, train_single_sequence
 from sequence_generator import SequenceData
 from utils import query
-import tiktoken
 
 
 if __name__ == "__main__":
@@ -26,8 +25,8 @@ if __name__ == "__main__":
     # print(response_no_memory)
 
     print("Training memory module...")
-    losses = train_single_sequence(memory, data, test_sequence, learning_rate=0.0001, 
-                                          num_epochs=5000, print_every=500)
+    losses = train_single_sequence(memory, data, test_sequence, learning_rate=0.0005, 
+                                          num_epochs=10000, print_every=500)
 
     response_with_memory = query(True, test_sequence[:3], client, memory_module=memory)
     print("Response with memory:")

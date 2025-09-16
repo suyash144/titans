@@ -3,7 +3,7 @@ from sequence_generator import SequenceData
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.utils as utils
-from sklearn.preprocessing import StandardScaler
+import random
 
 
 class NeuralMemory(nn.Module):
@@ -20,8 +20,6 @@ class NeuralMemory(nn.Module):
         input_dim = sequence_length * embedding_dim
         self.memory = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, value_dim)
         )
@@ -89,7 +87,7 @@ def train_single_sequence(memory_module: NeuralMemory, data_handler: SequenceDat
     return losses
 
 def train_multiple_sequences(memory_module: NeuralMemory, data_handler: SequenceData, sequences, 
-                             learning_rate=0.01, num_epochs=1000):
+                             learning_rate=0.01, num_epochs=1000, verbose=True):
     optimizer = optim.SGD(memory_module.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
 
@@ -97,6 +95,7 @@ def train_multiple_sequences(memory_module: NeuralMemory, data_handler: Sequence
 
     for epoch in range(num_epochs):
         epoch_loss = 0
+        random.shuffle(sequences)
         for i, seq in enumerate(sequences):
             key, value = data_handler.extract_key_value(seq)
             # Train on this key-value pair
@@ -108,7 +107,7 @@ def train_multiple_sequences(memory_module: NeuralMemory, data_handler: Sequence
             epoch_loss += loss.item()
             loss.backward()
             optimizer.step()
-            if epoch % 1000 == 0:
+            if epoch % 1000 == 0 and verbose:
                 print(f"Training on sequence {i+1}, Epoch {epoch}: Loss = {loss.item():.6f}")
         losses.append(epoch_loss)
         if epoch_loss < 1e-4:

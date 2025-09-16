@@ -8,7 +8,6 @@ from neural_memory import NeuralMemory, train_multiple_sequences
 from sequence_generator import SequenceData
 from utils import query
 
-
 load_dotenv()
 KEY = os.getenv('OPENAI_API_KEY')
 
@@ -17,12 +16,7 @@ memory = NeuralMemory()
 data = SequenceData()
 
 N = 8                              # number of sequences to memorise
-sequences = []
-
-for i in range(N):
-    seq = data.generate_sequence()
-    print(f"Generated sequence {i}: {seq.numpy()}")
-    sequences.append(seq)
+sequences = data.generate_sequences(N)
 
 losses = train_multiple_sequences(memory, data, sequences, learning_rate=0.00001, num_epochs=10000)
 

@@ -1,5 +1,4 @@
 import torch
-import tiktoken
 import numpy as np
 
 class SequenceData:
@@ -17,6 +16,10 @@ class SequenceData:
     def generate_sequence(self, low=0, high=1000):
         """Generate a single random 4-integer sequence."""
         return torch.randint(low, high, (4,), dtype=torch.long)
+    
+    def generate_sequences(self, N, low=0, high=1000):
+        """Generate N random 4-integer sequences."""
+        return [self.generate_sequence(low, high) for _ in range(N)]
     
     def encode(self, sequence):
         """Encode a sequence of integers into token IDs."""
