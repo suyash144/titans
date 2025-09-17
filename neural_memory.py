@@ -33,7 +33,7 @@ class NeuralMemory(nn.Module):
         """
         # Each number gets its own learnable representation
         embedded = self.embedding(numbers)
-        flattened = torch.flatten(embedded)
+        flattened = embedded.view(embedded.size(0), -1)
         return self.memory(flattened)
 
 

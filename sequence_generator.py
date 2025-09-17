@@ -1,5 +1,5 @@
 import torch
-import numpy as np
+from sequence_dataset import SequenceDataset
 
 class SequenceData:
     """
@@ -52,6 +52,10 @@ class SequenceData:
         key = torch.matmul(sequence, self.W_K.T)
         value = torch.matmul(sequence, self.W_V.T).float()
         return key, value
+
+    def create_dataset(self, sequences):
+        """Create a PyTorch Dataset from sequences."""
+        return SequenceDataset(self, sequences)
     
 
 
