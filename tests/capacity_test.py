@@ -3,42 +3,18 @@ import os
 import numpy as np
 import sys
 sys.path.insert(0, os.getcwd())
-from neural_memory import NeuralMemory
+from neural_memory import NeuralMemory, train
 from sequence_generator import SequenceData
-from sequence_dataset import SequenceDataset
-from torch.utils.data import DataLoader
 import torch
 
-def train(memory_module, data_handler, sequences, batch_size=64, learning_rate=0.01, num_epochs=1000):
 
-    dataset = SequenceDataset(data_handler, sequences)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    
-    optimizer = torch.optim.SGD(memory_module.parameters(), lr=learning_rate)
-    criterion = torch.nn.MSELoss()
-    
-    for epoch in range(num_epochs):
-        epoch_loss = 0.0
-        
-        for batch_keys, batch_values in dataloader:
-            optimizer.zero_grad()
-            
-            predictions = memory_module(batch_keys)
-            loss = criterion(predictions, batch_values)
-            
-            loss.backward()
-            optimizer.step()
-            
-            epoch_loss += loss.item()
-
-
-capacities = [512, 1024, 2048, 4096, 8192]
+capacities = [1e4, 5e4, 1e5, 5e5, 1e6]
 data_handler = SequenceData()
 results = []
 
 for cap in capacities:
     # generate sequences
-    sequences = data_handler.generate_sequences(N=cap)
+    sequences = data_handler.generate_sequences(N=int(cap))
     # reset memory module
     memory = NeuralMemory()
     print(f"Training memory module to memorise {cap} sequences...")

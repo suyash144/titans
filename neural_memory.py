@@ -2,7 +2,8 @@ import torch
 from sequence_generator import SequenceData
 import torch.optim as optim
 import torch.nn as nn
-import torch.nn.utils as utils
+from torch.utils.data import DataLoader
+from sequence_dataset import SequenceDataset
 import random
 
 
@@ -143,6 +144,30 @@ def test_memory_recall(memory_module: NeuralMemory, data_handler: SequenceData, 
     }
     
     return results
+
+
+def train(memory_module, data_handler, sequences, batch_size=64, learning_rate=0.01, num_epochs=1000):
+
+    dataset = SequenceDataset(data_handler, sequences)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    
+    optimizer = torch.optim.SGD(memory_module.parameters(), lr=learning_rate, momentum=0.9, weight_decay=1e-5)
+    criterion = torch.nn.MSELoss()
+    
+    for epoch in range(num_epochs):
+        epoch_loss = 0.0
+        
+        for batch_keys, batch_values in dataloader:
+            optimizer.zero_grad()
+            
+            predictions = memory_module(batch_keys)
+            loss = criterion(predictions, batch_values)
+            
+            loss.backward()
+            optimizer.step()
+            
+            epoch_loss += loss.item()
+
 
 
 if __name__ == "__main__":
