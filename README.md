@@ -13,8 +13,8 @@ Then, the 'key' is passed forward through the MLP and the loss for regression is
 
 So by training the small MLP at test time, the neural network can flexibly adapt to learn and memorise new information. The paper also introduces lots of interesting interpretations of standard optimisation procedures:
 - Surprise-based memory update. They define surprise as the gradient of the memory module parameters, so this is equivalent to gradient descent.
-- Incorporating momentum in the gradient descent optimiser is akin to including a window of 'past surprise' as well as current surprise. 
-- Forgetting mechanism via a parameter ($\alpha$) that controls how much weight should be given to incorporatng new information vs keeping existing information. This becomes important when the memory module approaches its memory capacity (which intuitively is proportional to the overall 'capacity', in the deep learning sense, of the network). It is equivalent to weight decay and is closely related to the gating mechanism in modern RNNs. 
+- Incorporating momentum in the gradient descent optimiser is likened to including a window of 'past surprise' as well as current surprise. 
+- Forgetting mechanism via a parameter ($\alpha$) that controls how much weight should be given to incorporatng new information vs keeping existing information. This becomes important when the memory module approaches its memory capacity (which intuitively is likely to be proportional to the overall 'capacity', in the deep learning sense, of the network). It is equivalent to weight decay and is closely related to the gating mechanism in modern RNNs. 
 
 
 ### My implementation
@@ -25,7 +25,7 @@ A further simplification I made was to focus on a simple, somewhat contrived sub
 
 It's crucial at this point to mention that the sequences are totally random, so we are truly testing memory. Usually, neural networks aim to learn some general input-output mapping by approximating a function that works for all the samples in the training dataset. There is no such function here; there is no underlying low-dimensional statistical similarity across training data that can be leveraged or extracted by the network. We are literally treating it as a storage device. 
 
-While this may seem like a major reduction in scope, I felt that this was a good way to get a minimal proof-of-concept up and running quickly. It's also straightforward to evaluate, since there is exactly one correct answer for a given 3-number sequence stem at test time, provided the model has seen the full sequence before. I could then use this for more interesting things like testing memory capacity (read on for those results).
+While this may seem like a major reduction in scope, I felt that this was a good way to get a minimal proof-of-concept up and running quickly. It's also straightforward to evaluate, since there is exactly one correct answer for a given 3-number sequence stem at test time, provided the model has seen the full sequence before. I could then use this for more interesting things like testing memory capacity and forgetting.
 
 
 ### A tricky detail
@@ -48,7 +48,7 @@ Once I established that I could memorise 50+ sequences, I wrote a quick script (
 
 ### Testing capacity
 
-Now we can get to the interesting bit - testing the capacity of the memory module, i.e. how many sequences can be memorised with a given MLP architecture. This is what I test in the `capacity_test.py` script. At this point, I also brought in momentum and weight decay in the SGD optimiser, as they help with training stability for these experiments that involve more data. An interesting way to explore capacity would be to plot the capacity (number of sequences that can be reliably memorised) against the number of parameters in different MLP architectures. With the current rudimentary training setup, I wasn't able to train the MLP on really large numbers of sequences, but this is definitely something I'd like to test further. Based on my experiments with this MLP, the capacity is at least 10,000 sequences.
+Now we can get to the interesting bit - testing the capacity of the memory module, i.e. how many sequences can be memorised with a given MLP architecture. This is what I test in the `capacity_test.py` script. At this point, I also brought in momentum and weight decay in the SGD optimiser, as they help with training stability for these experiments that involve more data. An interesting way to explore capacity would be to plot the capacity (number of sequences that can be reliably memorised) against the number of parameters in different MLP architectures. With the current rudimentary training setup, I wasn't able to train the MLP on really large numbers of sequences, but this is definitely something I'd like to test further. Based on my experiments with this MLP, the capacity is at least 10,000 sequences. Again, measuring the capacity of this particular MLP is not that informative on its own; I'd be more interested to find out the relationship between the number of parameters and capacity (and we could plot one of these curves for each of a range of neural memory architectures).
 
 ### Testing forgetting
 
