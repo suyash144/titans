@@ -8,7 +8,7 @@ from sequence_generator import SequenceData
 import torch
 
 
-capacities = [1e4, 5e4, 1e5, 5e5, 1e6]
+capacities = [1e4, 5e4, 1e5]
 data_handler = SequenceData()
 results = []
 
@@ -18,9 +18,11 @@ for cap in capacities:
     # reset memory module
     memory = NeuralMemory()
     print(f"Training memory module to memorise {cap} sequences...")
-    losses = train(memory, data_handler, sequences, batch_size=64, learning_rate=0.0001, num_epochs=10000)
+    memory.train()
+    train(memory, data_handler, sequences, batch_size=64, learning_rate=0.0001, num_epochs=10000)
 
     correct, incorrect = 0, 0
+    memory.eval()
     for i, test_sequence in enumerate(sequences):
         memory_prediction = torch.round(memory(test_sequence[:3].unsqueeze(0)))
         if abs(memory_prediction.item() - test_sequence[3].item()) < 0.01:
@@ -28,6 +30,7 @@ for cap in capacities:
         else:
             print(f"Incorrect: {memory_prediction.item()} vs {test_sequence[3].item()}")
     
+    print(f"Capacity {cap}: Correctly recalled {correct} out of {len(sequences)} sequences.")
     results.append(correct)
 
 # print results

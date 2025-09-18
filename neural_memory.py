@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from sequence_dataset import SequenceDataset
 import random
+import numpy as np
 
 
 class NeuralMemory(nn.Module):
@@ -24,6 +25,10 @@ class NeuralMemory(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, value_dim)
         )
+
+        # In a more full implementation, we probably wouldn't have a value_dim parameter as the output dimension 
+        # would be the same as the input dimension (probably just whatever the embedding dimension is).
+        # Fixing the output_dim is another consequence of the fixed projection matrices.
     
     def forward(self, numbers):
         """
@@ -167,6 +172,16 @@ def train(memory_module, data_handler, sequences, batch_size=64, learning_rate=0
             optimizer.step()
             
             epoch_loss += loss.item()
+            if np.isnan(loss.item()):
+                raise ValueError("Loss is NaN. Training diverged at epoch ",  epoch)
+
+        avg_loss = epoch_loss / len(dataloader)
+        if avg_loss < 1e-5:
+            print(f"Early stopping at epoch {epoch} with average loss {avg_loss:.6f}")
+            break
+
+        if epoch % 100 == 0 and epoch > 0:
+            print(f"Epoch {epoch}: Average Loss = {avg_loss:.6f}")
 
 
 
